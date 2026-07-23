@@ -42,17 +42,17 @@ workflows:
           echo "Using JAVA_HOME: $JAVA_HOME"
           $JAVA_HOME/bin/java -version
 
-          # ★ 创建空的 accesswidener 文件（如果不存在）
+          # ★ 创建合法 access widener 文件（包含 v2 头部）
+          mkdir -p src/main/resources
           if [ ! -f src/main/resources/iris_metal.accesswidener ]; then
-            echo "Creating empty iris_metal.accesswidener"
-            mkdir -p src/main/resources
-            touch src/main/resources/iris_metal.accesswidener
+            echo "Creating iris_metal.accesswidener with valid header"
+            echo "accessWidener v2" > src/main/resources/iris_metal.accesswidener
           fi
 
           # ★ 将 metallum 依赖改为本地 jar
           sed -i.bak "s/modImplementation 'maven.modrinth:metallum:0.0.21'/modImplementation files('libs\/metallum-0.0.21.jar')/" build.gradle
 
-          # ★ 创建 init.gradle 仅添加 flatDir 仓库（无需多余逻辑）
+          # ★ 创建 init.gradle 仅添加 flatDir 仓库
           cat > init.gradle << 'EOF'
           allprojects {
               repositories {
