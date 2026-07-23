@@ -1,7 +1,7 @@
 workflows:
   build-iris-metal:
     name: Build Iris Metal Mod
-    instance_type: mac_mini_m2          # 若为 Intel，请改为 mac_mini
+    instance_type: mac_mini_m2
 
     scripts:
       - name: Install JDK 25 (Temurin)
@@ -20,7 +20,6 @@ workflows:
         script: |
           cd $CM_BUILD_DIR
           cd src/main/native
-          # 若为 Intel，将 -target 改为 x86_64-apple-macos14.0
           swiftc -O -target arm64-apple-macos14.0 \
             -framework Foundation -framework Metal -framework MetalKit \
             -framework QuartzCore \
@@ -28,28 +27,41 @@ workflows:
             -o ../resources/natives/macos/libiris_metal.dylib
           cd $CM_BUILD_DIR
 
-      - name: Download metallum dependency
+      - name: Download dependencies (metallum, iris, sodium)
         script: |
           cd $CM_BUILD_DIR
           mkdir -p libs
+          # 1. metallum
           curl -L -o libs/metallum-0.0.21.jar \
             https://github.com/kokodio/metallum/releases/download/v0.0.21/metallum-0.0.21.jar
+          # 2. Iris (Fabric 26.2)[reference:0]
+          curl -L -o libs/iris-fabric-1.11.1+mc26.2.jar \
+            https://edge.forgecdn.net/files/6272/940/iris-fabric-1.11.1%2Bmc26.2.jar
+          # 3. Sodium (Fabric 26.2)[reference:1][reference:2]
+          curl -L -o libs/sodium-fabric-0.9.0+mc26.2.jar \
+            https://edge.forgecdn.net/files/6260/965/sodium-fabric-0.9.0%2Bmc26.2.jar
 
-      - name: Fix access widener and build
+      - name: Fix build configuration and build
         script: |
           cd $CM_BUILD_DIR
           source $CM_ENV
           echo "Using JAVA_HOME: $JAVA_HOME"
           $JAVA_HOME/bin/java -version
 
-          # ★ 创建符合 Loom 要求的空 access widener（头部：accessWidener v2 official）
+          # 创建合法的 access widener
           mkdir -p src/main/resources
           echo "accessWidener v2 official" > src/main/resources/iris_metal.accesswidener
 
-          # ★ 将 metallum 依赖改为本地 jar
+          # 修改 build.gradle：替换 metallum 依赖为本地 jar
           sed -i.bak "s/modImplementation 'maven.modrinth:metallum:0.0.21'/modImplementation files('libs\/metallum-0.0.21.jar')/" build.gradle
 
-          # ★ 创建 init.gradle 添加 flatDir 仓库
+          # 在 dependencies 块中插入 Iris 和 Sodium 的本地依赖
+          sed -i.bak "/dependencies {/a\
+              modImplementation files('libs/iris-fabric-1.11.1+mc26.2.jar')\n\
+              modImplementation files('libs/sodium-fabric-0.9.0+mc26.2.jar')
+          " build.gradle
+
+          # 创建 init.gradle，配置本地仓库和必要远程仓库
           cat > init.gradle << 'EOF'
           allprojects {
               repositories {
