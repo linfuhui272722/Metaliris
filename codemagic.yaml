@@ -2,49 +2,61 @@
 workflows:
   build-iris-metal:
     name: Build Iris Metal Mod
-    instance_type: mac_mini_m2          # 如果你的机器是 Intel，改为 mac_mini
+    instance_type: mac_mini_m2          # 如果机器是 Intel，请改为 mac_mini
 
     scripts:
       - name: Install JDK 25 (Temurin)
         script: |
-          # 下载 JDK 25 (Apple Silicon 版本)
+          # 回到根目录（保险）
+          cd $CM_BUILD_DIR
+          # 下载 JDK 25 (Apple Silicon)
           curl -L -o jdk.tar.gz \
             https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25%2B36/OpenJDK25U-jdk_aarch64_mac_hotspot_25_36.tar.gz
           sudo mkdir -p /Library/Java/JavaVirtualMachines
           sudo tar -xzf jdk.tar.gz -C /Library/Java/JavaVirtualMachines
-          # 设置环境变量并持久化
-          export JAVA_HOME=$(/usr/libexec/java_home -v 25)
-          echo "JAVA_HOME=$JAVA_HOME" >> $CM_ENV
-          java -version
+          # 找到实际解压后的目录名（可能是 jdk-25+36）
+          JDK_DIR=$(ls /Library/Java/JavaVirtualMachines | grep jdk-25 | head -1)
+          # 设置 JAVA_HOME 并写入环境文件
+          export JAVA_HOME="/Library/Java/JavaVirtualMachines/$JDK_DIR/Contents/Home"
+          echo "export JAVA_HOME=$JAVA_HOME" >> $CM_ENV
+          # 验证版本
+          $JAVA_HOME/bin/java -version
 
       - name: Compile Swift Native Library
         script: |
+          cd $CM_BUILD_DIR
           cd src/main/native
-          # 如果构建机是 Intel，将 target 改为 x86_64-apple-macos14.0
+          # 如果是 Intel 机器，将 -target 改为 x86_64-apple-macos14.0
           swiftc -O -target arm64-apple-macos14.0 \
             -framework Foundation -framework Metal -framework MetalKit \
             -framework QuartzCore \
             -emit-library IrisMetalNative.swift \
             -o ../resources/natives/macos/libiris_metal.dylib
-          cd ../../..
+          cd $CM_BUILD_DIR
 
       - name: Build Mod Jar with Gradle
         script: |
-          # ★★★ 关键：在构建前再次显式设置 JAVA_HOME（确保传递给 Gradle）
-          export JAVA_HOME=$(/usr/libexec/java_home -v 25)
-          echo "Using JAVA_HOME=$JAVA_HOME"
-          java -version
+          cd $CM_BUILD_DIR
+          # 加载我们设置的 JAVA_HOME
+          source $CM_ENV
+          echo "Using JAVA_HOME: $JAVA_HOME"
+          $JAVA_HOME/bin/java -version
 
-          # 如果 gradlew 不存在，则自动生成
+          # 如果 gradlew 不存在，自动生成
           if [ ! -f gradlew ]; then
-            echo "gradlew not found, generating wrapper..."
+            echo "gradlew not found, generating..."
             brew install gradle
             gradle wrapper
           fi
 
+          # 确认文件存在
+          ls -la gradlew
+
+          # 赋予执行权限
           chmod +x gradlew
-          # 运行时强制指定 Java 版本（双重保险）
-          ./gradlew build --no-daemon -Dorg.gradle.java.home=$JAVA_HOME
+
+          # ★ 关键：通过 -Dorg.gradle.java.home 强制指定 JDK
+          ./gradlew build --no-daemon -Dorg.gradle.java.home="$JAVA_HOME"
 
     artifacts:
       - build/libs/*.jar
