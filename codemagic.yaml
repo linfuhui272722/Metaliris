@@ -1,14 +1,12 @@
-# codemagic.yaml
 workflows:
   build-iris-metal:
     name: Build Iris Metal Mod
-    instance_type: mac_mini_m2          # 若机器是 Intel，改为 mac_mini
+    instance_type: mac_mini_m2          # 若为 Intel，请改为 mac_mini
 
     scripts:
       - name: Install JDK 25 (Temurin)
         script: |
           cd $CM_BUILD_DIR
-          # 下载 JDK 25 (Apple Silicon)
           curl -L -o jdk.tar.gz \
             https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25%2B36/OpenJDK25U-jdk_aarch64_mac_hotspot_25_36.tar.gz
           sudo mkdir -p /Library/Java/JavaVirtualMachines
@@ -22,13 +20,22 @@ workflows:
         script: |
           cd $CM_BUILD_DIR
           cd src/main/native
-          # 如果机器是 Intel，将 -target 改为 x86_64-apple-macos14.0
+          # 若为 Intel，将 -target 改为 x86_64-apple-macos14.0
           swiftc -O -target arm64-apple-macos14.0 \
             -framework Foundation -framework Metal -framework MetalKit \
             -framework QuartzCore \
             -emit-library IrisMetalNative.swift \
             -o ../resources/natives/macos/libiris_metal.dylib
           cd $CM_BUILD_DIR
+
+      - name: Download metallum dependency
+        script: |
+          cd $CM_BUILD_DIR
+          # 创建 libs 目录存放本地 jar
+          mkdir -p libs
+          # 下载 metallum v0.0.21 的 jar 文件
+          curl -L -o libs/metallum-0.0.21.jar \
+            https://github.com/kokodio/metallum/releases/download/v0.0.21/metallum-0.0.21.jar
 
       - name: Build Mod Jar with Gradle
         script: |
@@ -37,11 +44,39 @@ workflows:
           echo "Using JAVA_HOME: $JAVA_HOME"
           $JAVA_HOME/bin/java -version
 
-          # 安装 Gradle（如果未安装，brew 会跳过已安装的）
+          # 创建 init.gradle 配置本地依赖和仓库
+          cat > init.gradle << 'EOF'
+          allprojects {
+              repositories {
+                  // 添加本地 libs 目录作为 flatDir 仓库
+                  flatDir {
+                      dirs 'libs'
+                  }
+                  // 保留必要的远程仓库
+                  mavenCentral()
+                  maven { url 'https://maven.fabricmc.net/' }
+                  maven { url 'https://libraries.minecraft.net/' }
+                  maven { url 'https://api.modrinth.com/maven' }
+              }
+          }
+
+          // 强制将 metallum 依赖指向本地 jar
+          project.afterEvaluate {
+              configurations.all {
+                  resolutionStrategy {
+                      dependencySubstitution {
+                          substitute module('maven.modrinth:metallum:0.0.21') using module(':metallum:0.0.21')
+                      }
+                  }
+              }
+          }
+          EOF
+
+          # 安装 Gradle（若已安装则跳过）
           brew install gradle || true
 
-          # ★ 关键：直接使用 gradle 命令，并通过 -D 参数强制指定 JDK
-          gradle build --no-daemon -Dorg.gradle.java.home="$JAVA_HOME"
+          # 执行构建
+          gradle build --no-daemon -Dorg.gradle.java.home="$JAVA_HOME" -I init.gradle
 
     artifacts:
       - build/libs/*.jar
