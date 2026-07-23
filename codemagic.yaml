@@ -2,21 +2,30 @@
 workflows:
   build-iris-metal:
     name: Build Iris Metal Mod
-    instance_type: mac_mini_m2              # 必须 macOS（Metal 框架）
-    environment:
-      # 这里不再需要 groups，直接省略即可
+    instance_type: mac_mini_m2             # 必须使用 macOS（Metal 需要）
+
     scripts:
-      - name: Install JDK 25
+      - name: Install JDK 25 (Temurin)
         script: |
-          brew install openjdk@25
+          # 从 Adoptium 下载 JDK 25（适配 Apple Silicon，即 arm64）
+          # 如果你的构建机是 Intel，请将链接中的 "aarch64" 改为 "x64"
+          curl -L -o jdk.tar.gz \
+            https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25%2B36/OpenJDK25U-jdk_aarch64_mac_hotspot_25_36.tar.gz
+          
+          sudo mkdir -p /Library/Java/JavaVirtualMachines
+          sudo tar -xzf jdk.tar.gz -C /Library/Java/JavaVirtualMachines
+          
+          # 设置 JAVA_HOME 并持久化到 Codemagic 环境
           export JAVA_HOME=$(/usr/libexec/java_home -v 25)
           echo "JAVA_HOME=$JAVA_HOME" >> $CM_ENV
+          
+          # 验证版本
           java -version
 
       - name: Compile Swift Native Library
         script: |
           cd src/main/native
-          # 如果构建机是 Intel，请将 -target 改为 x86_64-apple-macos14.0
+          # 若构建机为 Intel，请将 -target 改为 x86_64-apple-macos14.0
           swiftc -O -target arm64-apple-macos14.0 \
             -framework Foundation -framework Metal -framework MetalKit \
             -framework QuartzCore \
