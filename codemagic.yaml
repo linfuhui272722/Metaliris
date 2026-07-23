@@ -2,18 +2,17 @@
 workflows:
   build-iris-metal:
     name: Build Iris Metal Mod
-    instance_type: mac_mini_m2             # 必须 macOS
+    instance_type: mac_mini_m2          # 如果你的机器是 Intel，改为 mac_mini
 
     scripts:
       - name: Install JDK 25 (Temurin)
         script: |
-          # 下载 JDK 25（适配 Apple Silicon）
+          # 下载 JDK 25 (Apple Silicon 版本)
           curl -L -o jdk.tar.gz \
             https://github.com/adoptium/temurin25-binaries/releases/download/jdk-25%2B36/OpenJDK25U-jdk_aarch64_mac_hotspot_25_36.tar.gz
-          
           sudo mkdir -p /Library/Java/JavaVirtualMachines
           sudo tar -xzf jdk.tar.gz -C /Library/Java/JavaVirtualMachines
-          
+          # 设置环境变量并持久化
           export JAVA_HOME=$(/usr/libexec/java_home -v 25)
           echo "JAVA_HOME=$JAVA_HOME" >> $CM_ENV
           java -version
@@ -21,7 +20,7 @@ workflows:
       - name: Compile Swift Native Library
         script: |
           cd src/main/native
-          # 如果是 Intel 机器，将 -target 改为 x86_64-apple-macos14.0
+          # 如果构建机是 Intel，将 target 改为 x86_64-apple-macos14.0
           swiftc -O -target arm64-apple-macos14.0 \
             -framework Foundation -framework Metal -framework MetalKit \
             -framework QuartzCore \
@@ -31,14 +30,21 @@ workflows:
 
       - name: Build Mod Jar with Gradle
         script: |
-          # 如果 gradlew 不存在，用系统 gradle 生成 wrapper
+          # ★★★ 关键：在构建前再次显式设置 JAVA_HOME（确保传递给 Gradle）
+          export JAVA_HOME=$(/usr/libexec/java_home -v 25)
+          echo "Using JAVA_HOME=$JAVA_HOME"
+          java -version
+
+          # 如果 gradlew 不存在，则自动生成
           if [ ! -f gradlew ]; then
-            echo "gradlew not found, installing gradle and generating wrapper..."
+            echo "gradlew not found, generating wrapper..."
             brew install gradle
             gradle wrapper
           fi
+
           chmod +x gradlew
-          ./gradlew build --no-daemon
+          # 运行时强制指定 Java 版本（双重保险）
+          ./gradlew build --no-daemon -Dorg.gradle.java.home=$JAVA_HOME
 
     artifacts:
       - build/libs/*.jar
