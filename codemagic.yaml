@@ -42,14 +42,14 @@ workflows:
           echo "Using JAVA_HOME: $JAVA_HOME"
           $JAVA_HOME/bin/java -version
 
-          # ★ 创建符合 Loom 1.16.3 要求的 access widener 头部
+          # ★ 创建符合 Loom 要求的空 access widener（头部：accessWidener v2 official）
           mkdir -p src/main/resources
-          echo "classTweaker v1 named" > src/main/resources/iris_metal.accesswidener
+          echo "accessWidener v2 official" > src/main/resources/iris_metal.accesswidener
 
           # ★ 将 metallum 依赖改为本地 jar
           sed -i.bak "s/modImplementation 'maven.modrinth:metallum:0.0.21'/modImplementation files('libs\/metallum-0.0.21.jar')/" build.gradle
 
-          # ★ 创建 init.gradle 仅添加 flatDir 仓库
+          # ★ 创建 init.gradle 添加 flatDir 仓库
           cat > init.gradle << 'EOF'
           allprojects {
               repositories {
