@@ -2,51 +2,32 @@
 workflows:
   build-iris-metal:
     name: Build Iris Metal Mod
-    instance_type: mac_mini              # 必须用 macOS（Metal 框架）
+    instance_type: mac_mini_m2              # 必须 macOS（Metal 框架）
     environment:
-      groups:
-        # 如果不需要密钥，可删除此组
-        # - credentials
+      # 这里不再需要 groups，直接省略即可
     scripts:
       - name: Install JDK 25
         script: |
-          # macOS 镜像默认没有 JDK 25，用 Homebrew 安装
           brew install openjdk@25
-          # 设置 JAVA_HOME 并持久化到环境变量
           export JAVA_HOME=$(/usr/libexec/java_home -v 25)
           echo "JAVA_HOME=$JAVA_HOME" >> $CM_ENV
-          # 验证版本
           java -version
 
       - name: Compile Swift Native Library
         script: |
-          # 进入 native 目录编译 libiris_metal.dylib
           cd src/main/native
-          # 若构建机器是 Intel，请将 -target 改为 x86_64-apple-macos14.0
+          # 如果构建机是 Intel，请将 -target 改为 x86_64-apple-macos14.0
           swiftc -O -target arm64-apple-macos14.0 \
             -framework Foundation -framework Metal -framework MetalKit \
             -framework QuartzCore \
             -emit-library IrisMetalNative.swift \
             -o ../resources/natives/macos/libiris_metal.dylib
-          # 回到根目录
           cd ../../..
 
       - name: Build Mod Jar with Gradle
         script: |
-          # 确保 gradlew 可执行
           chmod +x gradlew
-          # 构建（--no-daemon 避免后台进程残留）
           ./gradlew build --no-daemon
 
     artifacts:
-      # 构建产物：模组 jar 文件
       - build/libs/*.jar
-
-    # 可选：发布到 GitHub Releases 或其它渠道
-    # publishing:
-    #   github:
-    #     repository: linfuhui272722/Iris-Metal
-    #     token: $GITHUB_TOKEN
-    #     release:
-    #       tag: latest-build
-    #       description: Automated build from Codemagic
