@@ -35,19 +35,24 @@ workflows:
           curl -L -o libs/metallum-0.0.21.jar \
             https://github.com/kokodio/metallum/releases/download/v0.0.21/metallum-0.0.21.jar
 
-      - name: Build Mod Jar with Gradle
+      - name: Fix missing access widener and build
         script: |
           cd $CM_BUILD_DIR
           source $CM_ENV
           echo "Using JAVA_HOME: $JAVA_HOME"
           $JAVA_HOME/bin/java -version
 
-          # ★ 关键：直接修改 build.gradle，将 metallum 依赖指向本地 jar
-          # 假设原依赖行为：modImplementation 'maven.modrinth:metallum:0.0.21'
-          # 替换为：modImplementation files('libs/metallum-0.0.21.jar')
+          # ★ 创建空的 accesswidener 文件（如果不存在）
+          if [ ! -f src/main/resources/iris_metal.accesswidener ]; then
+            echo "Creating empty iris_metal.accesswidener"
+            mkdir -p src/main/resources
+            touch src/main/resources/iris_metal.accesswidener
+          fi
+
+          # ★ 将 metallum 依赖改为本地 jar
           sed -i.bak "s/modImplementation 'maven.modrinth:metallum:0.0.21'/modImplementation files('libs\/metallum-0.0.21.jar')/" build.gradle
 
-          # 创建 init.gradle，仅用于添加 flatDir 仓库，让本地 jar 能被识别
+          # ★ 创建 init.gradle 仅添加 flatDir 仓库（无需多余逻辑）
           cat > init.gradle << 'EOF'
           allprojects {
               repositories {
