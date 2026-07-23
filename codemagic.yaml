@@ -32,7 +32,6 @@ workflows:
         script: |
           cd $CM_BUILD_DIR
           mkdir -p libs
-          # 下载 metallum v0.0.21 的 jar 文件，文件名与 flatDir 解析规则匹配
           curl -L -o libs/metallum-0.0.21.jar \
             https://github.com/kokodio/metallum/releases/download/v0.0.21/metallum-0.0.21.jar
 
@@ -43,34 +42,25 @@ workflows:
           echo "Using JAVA_HOME: $JAVA_HOME"
           $JAVA_HOME/bin/java -version
 
-          # 创建 init.gradle 配置 flatDir 和依赖替换
+          # ★ 关键：直接修改 build.gradle，将 metallum 依赖指向本地 jar
+          # 假设原依赖行为：modImplementation 'maven.modrinth:metallum:0.0.21'
+          # 替换为：modImplementation files('libs/metallum-0.0.21.jar')
+          sed -i.bak "s/modImplementation 'maven.modrinth:metallum:0.0.21'/modImplementation files('libs\/metallum-0.0.21.jar')/" build.gradle
+
+          # 创建 init.gradle，仅用于添加 flatDir 仓库，让本地 jar 能被识别
           cat > init.gradle << 'EOF'
           allprojects {
               repositories {
-                  // 将本地 libs 目录设为最高优先级
                   flatDir { dirs 'libs' }
-                  // 保留原有仓库（避免其他依赖缺失）
                   mavenCentral()
                   maven { url 'https://maven.fabricmc.net/' }
                   maven { url 'https://libraries.minecraft.net/' }
                   maven { url 'https://api.modrinth.com/maven' }
               }
-              configurations.all {
-                  resolutionStrategy {
-                      dependencySubstitution {
-                          // 将 modrinth 仓库的 metallum 替换为本地 flatDir 中的 metallum
-                          substitute module('maven.modrinth:metallum:0.0.21')
-                            using module('metallum:metallum:0.0.21')
-                      }
-                  }
-              }
           }
           EOF
 
-          # 安装 Gradle（若已安装则跳过）
           brew install gradle || true
-
-          # 执行构建，应用 init.gradle
           gradle build --no-daemon -Dorg.gradle.java.home="$JAVA_HOME" -I init.gradle
 
     artifacts:
