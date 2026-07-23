@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "id": "iris_metal",
+  "version": "1.11.2-metal.1",
+  "name": "Iris (Metal Backend)",
+  "description": "Iris shaders with Apple Metal backend support for Metallum. Provides GLSL→SPIRV→MSL shader compilation and Metal render pipeline for Iris on macOS Apple Silicon.",
+  "authors": [
+    "IrisShaders (original Iris)",
+    "Metal backend port"
+  ],
+  "contact": {
+    "homepage": "https://github.com/IrisShaders/Iris",
+    "sources": "https://github.com/IrisShaders/Iris"
+  },
+  "license": "LGPL-3.0-only",
+  "icon": "assets/iris/icon.png",
+  "environment": "client",
+  "entrypoints": {
+    "main": [
+      "net.irisshaders.iris.metal.IrisMetalEntrypoint"
+    ],
+    "client": [
+      "net.irisshaders.iris.metal.IrisMetalClientInit"
+    ]
+  },
+  "mixins": [
+    "iris_metal.mixins.json"
+  ],
+  "depends": {
+    "fabricloader": ">=0.19.2",
+    "minecraft": "~26.2-",
+    "java": ">=25",
+    "iris": "*",
+    "metallum": ">=0.0.21"
+  },
+  "recommends": {
+    "sodium": ">=0.9.0"
+  }
+}

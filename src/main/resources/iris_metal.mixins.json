@@ -1,0 +1,13 @@
+{
+  "required": true,
+  "package": "net.irisshaders.iris.metal.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "mixins": [],
+  "client": [
+    "RenderSystemMixin",
+    "PreferredGraphicsApiMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
