@@ -35,19 +35,16 @@ workflows:
           curl -L -o libs/metallum-0.0.21.jar \
             https://github.com/kokodio/metallum/releases/download/v0.0.21/metallum-0.0.21.jar
 
-      - name: Fix missing access widener and build
+      - name: Fix access widener and build
         script: |
           cd $CM_BUILD_DIR
           source $CM_ENV
           echo "Using JAVA_HOME: $JAVA_HOME"
           $JAVA_HOME/bin/java -version
 
-          # ★ 创建合法 access widener 文件（包含 v2 头部）
+          # ★ 创建符合 Loom 1.16.3 要求的 access widener 头部
           mkdir -p src/main/resources
-          if [ ! -f src/main/resources/iris_metal.accesswidener ]; then
-            echo "Creating iris_metal.accesswidener with valid header"
-            echo "accessWidener v2" > src/main/resources/iris_metal.accesswidener
-          fi
+          echo "classTweaker v1 named" > src/main/resources/iris_metal.accesswidener
 
           # ★ 将 metallum 依赖改为本地 jar
           sed -i.bak "s/modImplementation 'maven.modrinth:metallum:0.0.21'/modImplementation files('libs\/metallum-0.0.21.jar')/" build.gradle
